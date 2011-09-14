@@ -1,3 +1,4 @@
+#!/usr/bin/env stap
 # virtqueueleaks.stp
 #
 # virtqueueleaks.stp is based on the VirtqueueRequestTracker from:
