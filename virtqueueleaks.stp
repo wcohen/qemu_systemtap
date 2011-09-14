@@ -1,0 +1,18 @@
+# virtqueueleaks.stp
+#
+# virtqueueleaks.stp is based on the VirtqueueRequestTracker from:
+# http://blog.vmsplice.net/2011/03/how-to-write-trace-analysis-scripts-for.html
+
+global elems
+
+#the probe points optional because some architectures are missing them (for exampl cris)
+probe qemu.system.*86.virtqueue_pop { elems[pid(),elem] = elem }
+probe qemu.system.*86.virtqueue_fill { delete elems[pid(),elem] }
+
+probe end
+{
+  printf("\n%8s %8s\n", "pid", "elem")
+  foreach([p+, elem] in elems) {
+    printf("%8d %8x\n", p, elem)
+  }
+}
