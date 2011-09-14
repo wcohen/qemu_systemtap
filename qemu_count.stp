@@ -1,0 +1,4 @@
+#!/usr/bin/env stap
+global counts
+probe qemu.*.*.*? {counts[pn()]++}
+probe end {foreach(n+ in counts) printf ("%s = %d\n", n, counts[n])}
