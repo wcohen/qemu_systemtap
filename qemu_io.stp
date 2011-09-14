@@ -1,3 +1,5 @@
+#!/usr/bin/env stap
+
 global cpu_in, cpu_out
 probe qemu.system.x86_64.cpu_in { cpu_in[addr]++ }
 probe qemu.system.x86_64.cpu_out {cpu_out[addr]++ }
