@@ -1,0 +1,38 @@
+#!/usr/bin/env stap
+global e_time, reason, stats
+
+# leaving the guest vm for some reason
+probe kernel.trace("kvm_exit")
+{
+  p = pid()
+  e_time[p] = gettimeofday_us()
+  reason[p] = $exit_reason;
+}
+
+# re entering guest kvm
+probe kernel.trace("kvm_entry")
+{
+  new_t = gettimeofday_us();
+  p = pid()
+  if ( [p] in e_time) {
+    elapsed = new_t - e_time[p]
+    stats[reason[p]] <<< elapsed
+    delete e_time[p]
+    delete reason[p]
+  }
+}
+
+# This output the reason number in both decimal and hex to make it easier
+# to look up the reason.
+#
+# Intel exit reason are EXIT_REASON_* in linux/arch/x86/include/asm/vmx.h
+# AMD exit reasons are SVM_EXIT_* in linux/arch/x86/include/asm/svm.h
+probe end
+{
+  printf ("\n%s %s: %s %s %s %s %s\n", "reason", "reason", "count", "sum",
+         "min", "avg", "max")
+  foreach(r+ in stats)
+    printf ("%d 0x%03x: %d %d %d %d %d\n", r, r,
+      @count(stats[r]), @sum(stats[r]),
+      @min(stats[r]), @avg(stats[r]), @max(stats[r]))
+}
