@@ -1,0 +1,18 @@
+Both the kernel kvm and user-space qemu support SystemTap
+probes. These are some examples using those probe points to gain a
+better understanding of where the performance problems exist in
+virtualization system.
+
+Information about the qemu tracing points is at:
+
+http://wiki.qemu.org/Features/Tracing
+
+For more information about SystemTap:
+
+http://sourceware.org/systemtap/
+
+These examples may or may not work in your particular evironment.
+Feedback about the examples would be appreciated.  Please
+comment about them on systemtap@sources.redhat.com.
+
+-Will Cohen
