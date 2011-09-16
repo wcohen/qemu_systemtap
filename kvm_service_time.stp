@@ -4,7 +4,7 @@ global e_time, reason, stats
 # leaving the guest vm for some reason
 probe kernel.trace("kvm_exit")
 {
-  p = pid()
+  p = tid()
   e_time[p] = gettimeofday_us()
   reason[p] = $exit_reason;
 }
@@ -13,7 +13,7 @@ probe kernel.trace("kvm_exit")
 probe kernel.trace("kvm_entry")
 {
   new_t = gettimeofday_us();
-  p = pid()
+  p = tid()
   if ( [p] in e_time) {
     elapsed = new_t - e_time[p]
     stats[reason[p]] <<< elapsed
