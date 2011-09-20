@@ -1,0 +1,23 @@
+#!/usr/bin/env stap
+# simple script to find out where the kvm_exits happen in guest VMs
+
+global rips
+
+probe kernel.trace("kvm_exit")
+{
+  p = tid()
+  rips[$guest_rip, p, $exit_reason] ++
+}
+
+# This output the reason number in both decimal and hex to make it easier
+# to look up the reason.
+#
+# Intel exit reason are EXIT_REASON_* in linux/arch/x86/include/asm/vmx.h
+# AMD exit reasons are SVM_EXIT_* in linux/arch/x86/include/asm/svm.h
+probe end
+{
+   printf ("#%s %s %s %s: %s\n",
+           "rip", "tid", "reason", "reason(hex)", "count")
+  foreach([r+, p, e] in rips)
+    printf ("0x%016x %d %d 0x%03x: %d\n", r, p, e, e, rips[r, p, e])
+}
