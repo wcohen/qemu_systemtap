@@ -1,23 +1,76 @@
 #!/usr/bin/env stap
-# simple script to find out where the kvm_exits happen in guest VMs
+# a simple script to find out where the kvm_exits happen in guest VMs
+# 
+# On an Intel machine run with:
+# ./kvm_service_time.stp -G kvm=intel
+#
+# On an AMD machine run with:
+# ./kvm_service_time.stp -G kvm=amd
+#
 
 global rips
+global async_exit    # events that are not caused by the guest instruction
+global kvm="unknown" # select whether "amd" or "intel" flavor kvm
 
 probe kernel.trace("kvm_exit")
 {
   p = tid()
-  rips[$guest_rip, p, $exit_reason] ++
+  if ($exit_reason in async_exit) next
+
+  if (@defined($guest_rip)) {
+    guest_rip = $guest_rip
+  } else {
+    # FIXME newer versions of tracepoint provide a pointer to vcpu
+  }
+  rips[guest_rip, p, $exit_reason] ++
 }
 
-# This output the reason number in both decimal and hex to make it easier
-# to look up the reason.
-#
-# Intel exit reason are EXIT_REASON_* in linux/arch/x86/include/asm/vmx.h
-# AMD exit reasons are SVM_EXIT_* in linux/arch/x86/include/asm/svm.h
 probe end
 {
-   printf ("#%s %s %s %s: %s\n",
-           "rip", "tid", "reason", "reason(hex)", "count")
+  print_header()
   foreach([r+, p, e] in rips)
-    printf ("0x%016x %d %d 0x%03x: %d\n", r, p, e, e, rips[r, p, e])
+    printf ("0x%016x %d %s: %d\n", r, p, reason_string(e), rips[r, p, e])
+}
+
+function reason_string:string(r:long)
+{
+  if (kvm=="amd")
+    return sprintf ("0x%03x", r)
+  else if (kvm=="intel")
+    return sprintf ("%d", r)
+  else
+    return sprintf ("%d 0x%03x", r, r)
+}
+
+function print_header()
+{
+  if (kvm=="amd") {
+    printf ("\n# AMD reasons are SVM_EXIT_* in linux/arch/x86/include/asm/svm.h\n")
+    printf ("# %s %s %s: %s\n",
+    	   "rip", "tid", "reason", "count")
+  } else if (kvm=="intel") {
+    printf("\n# Intel exit reasons are EXIT_REASON_* in linux/arch/x86/include/asm/vmx.h\n")
+    printf ("# %s %s %s: %s\n",
+           "rip", "tid", "reason", "count")
+  } else {
+    printf ("\n# Intel exit reasons are EXIT_REASON_* in linux/arch/x86/include/asm/vmx.h\n")
+    printf ("# AMD reasons are SVM_EXIT_* in linux/arch/x86/include/asm/svm.h\n")
+    printf ("# %s %s %s %s: %s\n",
+           "rip", "tid", "reason", "reason(hex)", "count")
+  }
+}
+
+# Mark off the asynchronous exit event if know what flavor kvm is being used.
+probe begin
+{
+  if (kvm=="amd") {
+    async_exit[0x060] = "SVM_EXIT_INTR"
+    async_exit[0x061] = "SVM_EXIT_NMI"
+    async_exit[0x062] = "SVM_EXIT_SMI"
+  } else if (kvm=="intel") {
+    async_exit[0] = "EXIT_REASON_EXCEPTION_NMI"
+    async_exit[1] = "EXIT_REASON_EXTERNAL_INTERRUPT"
+  } else {
+    error("Please specify kvm with \"-G kvm=intel\" or \"-G kvm=amd\"")
+  }
 }
